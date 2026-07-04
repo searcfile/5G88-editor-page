@@ -1,232 +1,62 @@
-let selectedBotId = localStorage.getItem("selectedBotId") || "";
-let selectedBotName = "";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getDatabase, ref, set, get, push, remove, update, onValue
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-const API_BASE = "https://blurphp.web.app/api";
+const firebaseConfig = {
+  apiKey: "AIzaSyD3-r7y5chSlGrxx1QuSezoSkaCw_xVcE8",
+  authDomain: "bot-8c959.firebaseapp.com",
+  databaseURL: "https://bot-8c959-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bot-8c959",
+  storageBucket: "bot-8c959.firebasestorage.app",
+  messagingSenderId: "596404696711",
+  appId: "1:596404696711:web:e9c9b7801324a11eb4ea22"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let selectedBotId = localStorage.getItem("selectedBotId") || "";
+let listenerTimer = null;
 
 const $ = (id) => document.getElementById(id);
+const esc = (v = "") => String(v).replace(/[&<>"']/g, m => ({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+}[m]));
 
-window.openCreateBot = () => $("botModal").classList.add("show");
-window.closeCreateBot = () => $("botModal").classList.remove("show");
-
-document.querySelectorAll(".nav").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav").forEach((n) => n.classList.remove("active"));
-    document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
-
-    btn.classList.add("active");
-    $(btn.dataset.page).classList.add("active");
-    $("pageTitle").textContent = btn.textContent.replace(/[^\w\s]/g, "").trim();
+async function tg(token, method, data = {}) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(data)
   });
-});
-
-async function api(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers || {})
-    }
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data.error || "API error");
-  }
-
-  return data;
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.description || "Telegram API error");
+  return json.result;
 }
 
-window.createBot = async function () {
-  const token = $("botToken").value.trim();
+async function getBot(botId = selectedBotId) {
+  if (!botId) return null;
+  const snap = await get(ref(db, `bots/${botId}`));
+  return snap.exists() ? { id: botId, ...snap.val() } : null;
+}
 
-  if (!token) {
-    alert("Masukkan token bot dulu bro");
-    return;
-  }
-
-  try {
-    const data = await api("/bots", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token })
-    });
-
-    $("botToken").value = "";
-    closeCreateBot();
-
-    selectedBotId = data.botId;
-    localStorage.setItem("selectedBotId", selectedBotId);
-
-    await loadAll();
-    alert("Bot berjaya dibuat ✅");
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.selectBot = async function (botId) {
-  selectedBotId = botId;
-  localStorage.setItem("selectedBotId", botId);
-  await loadAll();
-};
-
-window.deleteBot = async function (botId) {
-  if (!confirm("Delete bot ini bro?")) return;
-
-  try {
-    await api(`/bots/${botId}`, { method: "DELETE" });
-
-    if (selectedBotId === botId) {
-      selectedBotId = "";
-      localStorage.removeItem("selectedBotId");
-    }
-
-    await loadAll();
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.setWebhook = async function (botId) {
-  try {
-    const data = await api(`/bots/${botId}/webhook`, { method: "POST" });
-    alert(`Webhook set ✅\n${data.webhookUrl}`);
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.saveSettings = async function () {
-  if (!selectedBotId) return alert("Pilih bot dulu bro");
-
-  const payload = {
-    mainBannerUrl: $("mainBannerUrl").value.trim(),
-    welcomeText: $("welcomeText").value,
-    aboutText: $("aboutText").value,
-    registerUrl: $("registerUrl").value.trim(),
-    telegramSupport: $("telegramSupport").value.trim(),
-    whatsappUrl: $("whatsappUrl").value.trim()
-  };
-
-  try {
-    await api(`/bots/${selectedBotId}/settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    alert("Settings saved ✅");
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.uploadImage = async function () {
-  if (!$("uploadFile").files[0]) return alert("Pilih gambar dulu bro");
-
-  const form = new FormData();
-  form.append("image", $("uploadFile").files[0]);
-
-  try {
-    const data = await api("/upload", {
-      method: "POST",
-      body: form
-    });
-
-    $("uploadResult").innerHTML = `
-      Uploaded ✅<br>
-      <input value="${data.url}" readonly onclick="this.select()" />
-    `;
-
-    if (selectedBotId) {
-      $("mainBannerUrl").value = data.url;
-    }
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.addPromo = async function () {
-  if (!selectedBotId) return alert("Pilih bot dulu bro");
-
-  const payload = {
-    title: $("promoTitle").value.trim(),
-    imageUrl: $("promoImageUrl").value.trim(),
-    caption: $("promoCaption").value.trim()
-  };
-
-  if (!payload.title) return alert("Isi promo title dulu bro");
-
-  try {
-    await api(`/bots/${selectedBotId}/promos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    $("promoTitle").value = "";
-    $("promoImageUrl").value = "";
-    $("promoCaption").value = "";
-
-    await loadPromos();
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.deletePromo = async function (promoId) {
-  if (!confirm("Delete promo ini bro?")) return;
-
-  try {
-    await api(`/bots/${selectedBotId}/promos/${promoId}`, { method: "DELETE" });
-    await loadPromos();
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.addButton = async function () {
-  if (!selectedBotId) return alert("Pilih bot dulu bro");
-
-  const payload = {
-    text: $("btnText").value.trim(),
-    url: $("btnUrl").value.trim(),
-    callbackData: $("btnCallback").value.trim()
-  };
-
-  if (!payload.text) return alert("Isi button text dulu bro");
-
-  try {
-    await api(`/bots/${selectedBotId}/buttons`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    $("btnText").value = "";
-    $("btnUrl").value = "";
-    $("btnCallback").value = "";
-
-    await loadButtons();
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
-window.deleteButton = async function (buttonId) {
-  if (!confirm("Delete button ini bro?")) return;
-
-  try {
-    await api(`/bots/${selectedBotId}/buttons/${buttonId}`, { method: "DELETE" });
-    await loadButtons();
-  } catch (err) {
-    alert(err.message);
-  }
-};
+function navInit() {
+  document.querySelectorAll(".nav").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".nav").forEach(n => n.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      $(btn.dataset.page).classList.add("active");
+      $("pageTitle").textContent = btn.textContent.replace(/[^\w\s]/g, "").trim();
+    };
+  });
+}
 
 async function loadBots() {
-  const data = await api("/bots");
-  const bots = data.bots || [];
+  const snap = await get(ref(db, "bots"));
+  const data = snap.val() || {};
+  const bots = Object.entries(data).map(([id, bot]) => ({ id, ...bot }));
 
   $("statBots").textContent = bots.length;
 
@@ -235,30 +65,87 @@ async function loadBots() {
     localStorage.setItem("selectedBotId", selectedBotId);
   }
 
-  const selected = bots.find((b) => b.id === selectedBotId);
-  selectedBotName = selected ? selected.botUsername || selected.botName : "";
-  $("activeBotLabel").textContent = selectedBotName ? `Active Bot: ${selectedBotName}` : "No bot selected";
+  const selected = bots.find(b => b.id === selectedBotId);
+  $("activeBotText").textContent = selected
+    ? `Active Bot: ${selected.botUsername || selected.botName || selected.id}`
+    : "No bot selected";
 
-  $("botList").innerHTML = bots.map((bot) => `
-    <div class="bot-card">
-      <h3>${bot.botUsername || bot.botName || "Unnamed Bot"}</h3>
-      <p>${bot.botName || ""}</p>
+  $("botList").innerHTML = bots.length ? bots.map(bot => `
+    <div class="botCard">
+      <h3>${esc(bot.botUsername || bot.botName || "Unnamed Bot")}</h3>
+      <p>${esc(bot.botName || "")}</p>
+      <p><b>Status:</b> ${bot.active === false ? "Disabled" : "Active"}</p>
       <div class="row">
         <button class="primary" onclick="selectBot('${bot.id}')">Open</button>
-        <button class="success" onclick="setWebhook('${bot.id}')">Set Webhook</button>
+        <button class="ghost" onclick="testBot('${bot.id}')">Test</button>
         <button class="danger" onclick="deleteBot('${bot.id}')">Delete</button>
       </div>
     </div>
-  `).join("");
+  `).join("") : `<p class="muted">Belum ada bot. Tekan Create New Bot.</p>`;
+}
 
-  return bots;
+window.selectBot = async (botId) => {
+  selectedBotId = botId;
+  localStorage.setItem("selectedBotId", botId);
+  await loadAll();
+};
+
+window.deleteBot = async (botId) => {
+  if (!confirm("Delete bot ini bro?")) return;
+  await remove(ref(db, `bots/${botId}`));
+  if (selectedBotId === botId) {
+    selectedBotId = "";
+    localStorage.removeItem("selectedBotId");
+  }
+  await loadAll();
+};
+
+window.testBot = async (botId) => {
+  try {
+    const bot = await getBot(botId);
+    const me = await tg(bot.token, "getMe");
+    alert(`Bot OK ✅\n@${me.username}`);
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+async function createBot() {
+  const token = $("botToken").value.trim();
+  if (!token) return alert("Masukkan token bot dulu bro");
+
+  try {
+    const me = await tg(token, "getMe");
+    const newRef = push(ref(db, "bots"));
+
+    await set(newRef, {
+      token,
+      botId: me.id,
+      botName: me.first_name || "",
+      botUsername: me.username ? "@" + me.username : "",
+      active: true,
+      createdAt: Date.now(),
+      settings: {
+        welcomeText: $("welcomeText").value,
+        aboutText: $("aboutText").value
+      }
+    });
+
+    selectedBotId = newRef.key;
+    localStorage.setItem("selectedBotId", selectedBotId);
+    $("botToken").value = "";
+    $("botModal").classList.remove("show");
+    await loadAll();
+    alert("Bot berjaya dibuat ✅");
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 async function loadSettings() {
   if (!selectedBotId) return;
-
-  const data = await api(`/bots/${selectedBotId}/settings`);
-  const s = data.settings || {};
+  const bot = await getBot();
+  const s = bot?.settings || {};
 
   $("mainBannerUrl").value = s.mainBannerUrl || "";
   $("welcomeText").value = s.welcomeText || $("welcomeText").value;
@@ -268,80 +155,332 @@ async function loadSettings() {
   $("whatsappUrl").value = s.whatsappUrl || "";
 }
 
+async function saveSettings() {
+  if (!selectedBotId) return alert("Pilih bot dulu bro");
+
+  await update(ref(db, `bots/${selectedBotId}/settings`), {
+    mainBannerUrl: $("mainBannerUrl").value.trim(),
+    welcomeText: $("welcomeText").value,
+    aboutText: $("aboutText").value,
+    registerUrl: $("registerUrl").value.trim(),
+    telegramSupport: $("telegramSupport").value.trim(),
+    whatsappUrl: $("whatsappUrl").value.trim(),
+    updatedAt: Date.now()
+  });
+
+  alert("Settings saved ✅");
+}
+
+async function addPromo() {
+  if (!selectedBotId) return alert("Pilih bot dulu bro");
+
+  const title = $("promoTitle").value.trim();
+  if (!title) return alert("Isi promo title dulu bro");
+
+  await set(push(ref(db, `bots/${selectedBotId}/promos`)), {
+    title,
+    imageUrl: $("promoImageUrl").value.trim(),
+    caption: $("promoCaption").value.trim(),
+    createdAt: Date.now()
+  });
+
+  $("promoTitle").value = "";
+  $("promoImageUrl").value = "";
+  $("promoCaption").value = "";
+  await loadPromos();
+}
+
 async function loadPromos() {
-  if (!selectedBotId) {
-    $("promoList").innerHTML = "";
-    $("statPromos").textContent = "0";
-    return;
-  }
+  if (!selectedBotId) return;
+  const snap = await get(ref(db, `bots/${selectedBotId}/promos`));
+  const data = snap.val() || {};
+  const promos = Object.entries(data).map(([id, p]) => ({ id, ...p }));
 
-  const data = await api(`/bots/${selectedBotId}/promos`);
-  const promos = data.promos || [];
   $("statPromos").textContent = promos.length;
-
-  $("promoList").innerHTML = promos.map((p) => `
+  $("promoList").innerHTML = promos.length ? promos.map(p => `
     <div class="item">
-      <h3>${p.title}</h3>
-      <p>${p.caption || ""}</p>
-      ${p.imageUrl ? `<p>${p.imageUrl}</p>` : ""}
-      <button class="danger" onclick="deletePromo('${p.id}')">Delete</button>
+      <h3>${esc(p.title)}</h3>
+      ${p.imageUrl ? `<p>${esc(p.imageUrl)}</p>` : ""}
+      <p>${esc(p.caption || "")}</p>
+      <div class="row">
+        <button class="ghost" onclick="sendPromo('${p.id}')">Send Promo</button>
+        <button class="danger" onclick="deletePromo('${p.id}')">Delete</button>
+      </div>
     </div>
-  `).join("");
+  `).join("") : `<p class="muted">Belum ada promo.</p>`;
+}
+
+window.deletePromo = async (promoId) => {
+  await remove(ref(db, `bots/${selectedBotId}/promos/${promoId}`));
+  await loadPromos();
+};
+
+window.sendPromo = async (promoId) => {
+  const bot = await getBot();
+  const ps = await get(ref(db, `bots/${selectedBotId}/promos/${promoId}`));
+  const promo = ps.val();
+  const us = await get(ref(db, `bots/${selectedBotId}/users`));
+  const users = Object.values(us.val() || {});
+
+  let ok = 0, fail = 0;
+  for (const u of users) {
+    try {
+      if (promo.imageUrl) {
+        await tg(bot.token, "sendPhoto", {
+          chat_id: u.chatId,
+          photo: promo.imageUrl,
+          caption: promo.caption || promo.title
+        });
+      } else {
+        await tg(bot.token, "sendMessage", {
+          chat_id: u.chatId,
+          text: promo.caption || promo.title
+        });
+      }
+      ok++;
+    } catch {
+      fail++;
+    }
+  }
+  alert(`Send done ✅\nSuccess: ${ok}\nFailed: ${fail}`);
+};
+
+async function addButton() {
+  if (!selectedBotId) return alert("Pilih bot dulu bro");
+
+  const text = $("btnText").value.trim();
+  const url = $("btnUrl").value.trim();
+  if (!text || !url) return alert("Isi text dan URL button bro");
+
+  await set(push(ref(db, `bots/${selectedBotId}/buttons`)), {
+    text, url, createdAt: Date.now()
+  });
+
+  $("btnText").value = "";
+  $("btnUrl").value = "";
+  await loadButtons();
 }
 
 async function loadButtons() {
-  if (!selectedBotId) {
-    $("buttonList").innerHTML = "";
-    return;
-  }
+  if (!selectedBotId) return;
+  const snap = await get(ref(db, `bots/${selectedBotId}/buttons`));
+  const data = snap.val() || {};
+  const buttons = Object.entries(data).map(([id, b]) => ({ id, ...b }));
 
-  const data = await api(`/bots/${selectedBotId}/buttons`);
-  const buttons = data.buttons || [];
-
-  $("buttonList").innerHTML = buttons.map((b) => `
+  $("statButtons").textContent = buttons.length;
+  $("buttonList").innerHTML = buttons.length ? buttons.map(b => `
     <div class="item">
-      <h3>${b.text}</h3>
-      <p>${b.url || b.callbackData || ""}</p>
+      <h3>${esc(b.text)}</h3>
+      <p>${esc(b.url)}</p>
       <button class="danger" onclick="deleteButton('${b.id}')">Delete</button>
     </div>
-  `).join("");
+  `).join("") : `<p class="muted">Belum ada button.</p>`;
+}
+
+window.deleteButton = async (buttonId) => {
+  await remove(ref(db, `bots/${selectedBotId}/buttons/${buttonId}`));
+  await loadButtons();
+};
+
+async function syncUpdates() {
+  const bot = await getBot();
+  if (!bot) return alert("Pilih bot dulu bro");
+
+  try {
+    const lastSnap = await get(ref(db, `bots/${selectedBotId}/lastUpdateId`));
+    const offset = lastSnap.exists() ? Number(lastSnap.val()) + 1 : undefined;
+
+    const updates = await tg(bot.token, "getUpdates", offset ? { offset, timeout: 1 } : { timeout: 1 });
+
+    let lastId = offset || 0;
+    let count = 0;
+
+    for (const up of updates) {
+      lastId = up.update_id;
+      const msg = up.message;
+      if (!msg) continue;
+
+      const chat = msg.chat;
+      const text = msg.text || "";
+
+      if (text.startsWith("/start")) {
+        await set(ref(db, `bots/${selectedBotId}/users/${chat.id}`), {
+          chatId: chat.id,
+          username: chat.username || "",
+          firstName: chat.first_name || "",
+          lastName: chat.last_name || "",
+          startedAt: Date.now()
+        });
+
+        await sendWelcome(bot, chat);
+        count++;
+      }
+    }
+
+    if (lastId) await set(ref(db, `bots/${selectedBotId}/lastUpdateId`), lastId);
+    await loadUsers();
+    alert(`Sync done ✅\nNew users: ${count}`);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function sendWelcome(bot, chat) {
+  const s = bot.settings || {};
+  const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
+  const buttons = Object.values(buttonsSnap.val() || {});
+
+  const text = (s.welcomeText || "Welcome {username}")
+    .replaceAll("{username}", chat.username ? "@" + chat.username : chat.first_name || "User")
+    .replaceAll("{user_id}", chat.id);
+
+  const reply_markup = buttons.length ? {
+    inline_keyboard: buttons.map(b => [{ text: b.text, url: b.url }])
+  } : undefined;
+
+  if (s.mainBannerUrl) {
+    await tg(bot.token, "sendPhoto", {
+      chat_id: chat.id,
+      photo: s.mainBannerUrl,
+      caption: text,
+      reply_markup
+    });
+  } else {
+    await tg(bot.token, "sendMessage", {
+      chat_id: chat.id,
+      text,
+      reply_markup
+    });
+  }
 }
 
 async function loadUsers() {
-  if (!selectedBotId) {
-    $("userList").innerHTML = "";
-    $("statUsers").textContent = "0";
+  if (!selectedBotId) return;
+  const snap = await get(ref(db, `bots/${selectedBotId}/users`));
+  const data = snap.val() || {};
+  const users = Object.values(data);
+
+  $("statUsers").textContent = users.length;
+  $("userList").innerHTML = users.length ? users.map(u => `
+    <div class="item">
+      <h3>@${esc(u.username || "no_username")}</h3>
+      <p>${esc((u.firstName || "") + " " + (u.lastName || ""))}</p>
+      <p>Chat ID: ${esc(u.chatId)}</p>
+    </div>
+  `).join("") : `<p class="muted">Belum ada user. Tekan Sync Updates selepas user /start.</p>`;
+}
+
+async function broadcast() {
+  const bot = await getBot();
+  if (!bot) return alert("Pilih bot dulu bro");
+
+  const image = $("broadcastImage").value.trim();
+  const caption = $("broadcastCaption").value.trim();
+  if (!caption && !image) return alert("Isi caption atau image URL dulu bro");
+
+  const us = await get(ref(db, `bots/${selectedBotId}/users`));
+  const users = Object.values(us.val() || {});
+  let ok = 0, fail = 0;
+
+  $("broadcastLog").textContent = `Start broadcast to ${users.length} users...\n`;
+
+  for (const u of users) {
+    try {
+      if (image) {
+        await tg(bot.token, "sendPhoto", { chat_id: u.chatId, photo: image, caption });
+      } else {
+        await tg(bot.token, "sendMessage", { chat_id: u.chatId, text: caption });
+      }
+      ok++;
+      $("broadcastLog").textContent += `✅ ${u.chatId}\n`;
+    } catch (e) {
+      fail++;
+      $("broadcastLog").textContent += `❌ ${u.chatId} - ${e.message}\n`;
+    }
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  $("broadcastLog").textContent += `\nDone. Success ${ok}, Failed ${fail}`;
+}
+
+async function uploadCloudinary() {
+  const cloudName = $("cloudName").value.trim();
+  const preset = $("uploadPreset").value.trim();
+  const file = $("cloudFile").files[0];
+
+  if (!cloudName || !preset || !file) return alert("Isi Cloud Name, Upload Preset dan pilih gambar bro");
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", preset);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: form
+  });
+
+  const data = await res.json();
+  if (!data.secure_url) return alert(data.error?.message || "Upload failed");
+
+  $("cloudResult").innerHTML = `
+    <p>Uploaded ✅</p>
+    <input value="${data.secure_url}" readonly onclick="this.select()" />
+  `;
+
+  $("mainBannerUrl").value = data.secure_url;
+}
+
+function startListener() {
+  if (listenerTimer) {
+    clearInterval(listenerTimer);
+    listenerTimer = null;
+    $("listenBtn").textContent = "▶ Start Listener";
+    alert("Listener stopped");
     return;
   }
 
-  const data = await api(`/bots/${selectedBotId}/users`);
-  const users = data.users || [];
-  $("statUsers").textContent = users.length;
+  listenerTimer = setInterval(syncUpdates, 5000);
+  $("listenBtn").textContent = "⏸ Stop Listener";
+  syncUpdates();
+}
 
-  $("userList").innerHTML = users.map((u) => `
-    <div class="item">
-      <h3>@${u.username || "no_username"}</h3>
-      <p>${u.firstName || ""} ${u.lastName || ""}</p>
-      <p>Chat ID: ${u.chatId}</p>
-    </div>
-  `).join("");
+async function exportUsers() {
+  const snap = await get(ref(db, `bots/${selectedBotId}/users`));
+  const users = Object.values(snap.val() || {});
+  const csv = ["chatId,username,firstName,lastName,startedAt"]
+    .concat(users.map(u => `${u.chatId},${u.username || ""},${u.firstName || ""},${u.lastName || ""},${u.startedAt || ""}`))
+    .join("\n");
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "telegram-users.csv";
+  a.click();
 }
 
 async function loadAll() {
-  try {
-    await loadBots();
-
-    if (selectedBotId) {
-      await Promise.all([
-        loadSettings(),
-        loadPromos(),
-        loadButtons(),
-        loadUsers()
-      ]);
-    }
-  } catch (err) {
-    console.error(err);
+  await loadBots();
+  if (selectedBotId) {
+    await loadSettings();
+    await loadPromos();
+    await loadButtons();
+    await loadUsers();
   }
 }
+
+navInit();
+
+$("createBotBtn").onclick = () => $("botModal").classList.add("show");
+$("closeBotModalBtn").onclick = () => $("botModal").classList.remove("show");
+$("saveBotBtn").onclick = createBot;
+$("saveSettingsBtn").onclick = saveSettings;
+$("addPromoBtn").onclick = addPromo;
+$("addButtonBtn").onclick = addButton;
+$("syncBtn").onclick = syncUpdates;
+$("listenBtn").onclick = startListener;
+$("broadcastBtn").onclick = broadcast;
+$("uploadCloudBtn").onclick = uploadCloudinary;
+$("exportUsersBtn").onclick = exportUsers;
+
+onValue(ref(db, "bots"), () => loadAll());
 
 loadAll();
