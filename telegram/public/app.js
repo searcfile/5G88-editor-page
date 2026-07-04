@@ -363,6 +363,10 @@ function startListener() {
     return;
   }
 
+  $("listenBtn").textContent = "⏸ Stop Listener";
+
+  syncUpdates(false);
+
   listenerTimer = setInterval(async () => {
     if (isSyncing) return;
     isSyncing = true;
@@ -373,7 +377,6 @@ function startListener() {
     }
   }, 6000);
 
-  $("listenBtn").textContent = "⏸ Stop Listener";
   alert("Listener started ✅\nSekarang hantar /start test di Telegram.");
 }
 async function sendWelcome(bot, chat) {
