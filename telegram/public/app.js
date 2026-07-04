@@ -368,20 +368,34 @@ function startListener() {
 }
 async function sendWelcome(bot, chat) {
   const s = bot.settings || {};
+
   const text = (s.welcomeText || "Welcome {username}")
     .replaceAll("{username}", chat.username ? "@" + chat.username : chat.first_name || "User")
     .replaceAll("{user_id}", chat.id);
+
+  const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
+  const buttons = Object.values(buttonsSnap.val() || {})
+    .filter(b => b.text && b.url);
+
+  const reply_markup = buttons.length ? {
+    inline_keyboard: buttons.map(b => [{
+      text: b.text,
+      url: b.url
+    }])
+  } : undefined;
 
   if (s.mainBannerUrl) {
     await tg(bot.token, "sendPhoto", {
       chat_id: chat.id,
       photo: s.mainBannerUrl,
-      caption: text
+      caption: text,
+      reply_markup
     });
   } else {
     await tg(bot.token, "sendMessage", {
       chat_id: chat.id,
-      text
+      text,
+      reply_markup
     });
   }
 }
