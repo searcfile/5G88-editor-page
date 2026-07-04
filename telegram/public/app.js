@@ -250,18 +250,21 @@ async function addButton() {
 
   const text = $("btnText").value.trim();
   const url = $("btnUrl").value.trim();
+  const action = $("btnAction").value;
   if (!text || !url) return alert("Isi text dan URL button bro");
 
 await set(push(ref(db, `bots/${selectedBotId}/buttons`)), {
-    text,
-    url,
-    order: Number($("btnOrder").value || 999),
-    createdAt: Date.now()
+  text,
+  url,
+  action,
+  order: Number($("btnOrder").value || 999),
+  createdAt: Date.now()
 });
 
 $("btnText").value = "";
 $("btnUrl").value = "";
 $("btnOrder").value = "";
+  $("btnAction").value = "url";
   await loadButtons();
 }
 
@@ -318,6 +321,11 @@ async function syncUpdates(showAlert = true) {
     let count = 0;
 
     for (const up of updates) {
+      if (up.callback_query) {
+  const cb = up.callback_query;
+  await handleAction(bot, cb.message.chat, cb.data, cb.id);
+  continue;
+}
       lastId = up.update_id;
 
       const msg = up.message;
@@ -406,7 +414,29 @@ for(let i=0;i<buttons.length;i+=2){
 
             text:btn.text,
 
-            url:btn.url
+            const rows = [];
+
+for (let i = 0; i < buttons.length; i += 2) {
+  rows.push(
+    buttons.slice(i, i + 2).map(btn => {
+      if (btn.action && btn.action !== "url") {
+        return {
+          text: btn.text,
+          callback_data: btn.action
+        };
+      }
+
+      return {
+        text: btn.text,
+        url: btn.url
+      };
+    })
+  );
+}
+
+const reply_markup = rows.length ? {
+  inline_keyboard: rows
+} : undefined;
 
         }))
 
@@ -475,6 +505,127 @@ async function uploadCloudinary() {
 
   $("cloudResult").innerHTML = `<input value="${data.secure_url}" readonly onclick="this.select()">`;
   $("mainBannerUrl").value = data.secure_url;
+}
+async function answerCallback(bot, callbackId) {
+  try {
+    await tg(bot.token, "answerCallbackQuery", {
+      callback_query_id: callbackId
+    });
+  } catch {}
+}
+
+async function sendMenu(bot, chatId) {
+  await tg(bot.token, "sendMessage", {
+    chat_id: chatId,
+    text: "🔥 Promotion Menu",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "🔥 Promo 1", callback_data: "promo_1" },
+          { text: "🎁 Promo 2", callback_data: "promo_2" }
+        ],
+        [
+          { text: "💎 Promo 3", callback_data: "promo_3" },
+          { text: "⬅️ Back Menu", callback_data: "back_menu" }
+        ]
+      ]
+    }
+  });
+}
+
+async function sendAbout(bot, chatId) {
+  const s = bot.settings || {};
+  await tg(bot.token, "sendMessage", {
+    chat_id: chatId,
+    text: s.aboutText || "📌 About Us\n\nFast Withdraw | 24/7 Support"
+  });
+}
+
+async function sendContact(bot, chatId) {
+  const s = bot.settings || {};
+  await tg(bot.token, "sendMessage", {
+    chat_id: chatId,
+    text: "📞 Contact Us",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "💬 Telegram", url: s.telegramSupport || "https://t.me/" }],
+        [{ text: "💬 WhatsApp", url: s.whatsappUrl || "https://wa.me/" }]
+      ]
+    }
+  });
+}
+
+async function sendReferral(bot, chat) {
+  const code = String(chat.id).slice(-4) + Math.random().toString(36).slice(2,6).toUpperCase();
+  const link = `https://t.me/${(bot.botUsername || "").replace("@","")}?start=${code}`;
+
+  await update(ref(db, `bots/${selectedBotId}/users/${chat.id}`), {
+    referralCode: code,
+    referralLink: link
+  });
+
+  await tg(bot.token, "sendMessage", {
+    chat_id: chat.id,
+    text: `🎁 Referral Pro\n\nYour referral code: ${code}\nYour referral link:\n${link}`
+  });
+}
+
+async function sendPromoByNumber(bot, chatId, number) {
+  const snap = await get(ref(db, `bots/${selectedBotId}/promos`));
+  const promos = Object.values(snap.val() || {});
+
+  const promo = promos[number - 1];
+  if (!promo) {
+    await tg(bot.token, "sendMessage", {
+      chat_id: chatId,
+      text: "Promo belum ada bro."
+    });
+    return;
+  }
+
+  const markup = {
+    inline_keyboard: [
+      [{ text: "🚀 Register", url: bot.settings?.registerUrl || "https://google.com" }],
+      [{ text: "💬 Support", url: bot.settings?.telegramSupport || "https://t.me/" }],
+      [{ text: "⬅️ Back Menu", callback_data: "menu" }]
+    ]
+  };
+
+  if (promo.imageUrl) {
+    await tg(bot.token, "sendPhoto", {
+      chat_id: chatId,
+      photo: promo.imageUrl,
+      caption: promo.caption || promo.title,
+      reply_markup: markup
+    });
+  } else {
+    await tg(bot.token, "sendMessage", {
+      chat_id: chatId,
+      text: promo.caption || promo.title,
+      reply_markup: markup
+    });
+  }
+}
+
+async function handleAction(bot, chat, action, callbackId = "") {
+  if (callbackId) await answerCallback(bot, callbackId);
+
+  if (action === "menu" || action === "back_menu") return sendMenu(bot, chat.id);
+  if (action === "about") return sendAbout(bot, chat.id);
+  if (action === "contact") return sendContact(bot, chat.id);
+  if (action === "register") {
+    return tg(bot.token, "sendMessage", {
+      chat_id: chat.id,
+      text: "🚀 Register Now",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🌍 Register", url: bot.settings?.registerUrl || "https://google.com" }]]
+      }
+    });
+  }
+  if (action === "referral") return sendReferral(bot, chat);
+  if (action === "promo_1") return sendPromoByNumber(bot, chat.id, 1);
+  if (action === "promo_2") return sendPromoByNumber(bot, chat.id, 2);
+  if (action === "promo_3") return sendPromoByNumber(bot, chat.id, 3);
 }
 async function exportUsers() {
   const snap = await get(ref(db, `bots/${selectedBotId}/users`));
