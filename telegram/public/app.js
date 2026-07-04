@@ -251,7 +251,15 @@ async function addButton() {
   const text = $("btnText").value.trim();
   const url = $("btnUrl").value.trim();
   const action = $("btnAction").value;
-  if (!text || !url) return alert("Isi text dan URL button bro");
+  if (!text){
+    alert("Isi button text bro");
+    return;
+}
+
+if(action=="url" && !url){
+    alert("Isi URL bro");
+    return;
+}
 
 await set(push(ref(db,`bots/${selectedBotId}/buttons`)),{
     text,
