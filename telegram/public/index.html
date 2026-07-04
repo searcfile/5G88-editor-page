@@ -3,138 +3,149 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Telegram Multi Bot Manager</title>
+  <title>Telegram Multi Bot Panel</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="logo">🤖</div>
-        <div>
-          <h2>Bot Manager</h2>
-          <p>Multi Telegram Panel</p>
-        </div>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brandIcon">🤖</div>
+      <div>
+        <h2>Bot Panel</h2>
+        <p>Firebase Free Version</p>
       </div>
+    </div>
 
-      <button class="nav active" data-page="dashboard">📊 Dashboard</button>
-      <button class="nav" data-page="bots">🤖 Bots</button>
-      <button class="nav" data-page="settings">⚙️ Settings</button>
-      <button class="nav" data-page="promos">🎁 Promos</button>
-      <button class="nav" data-page="buttons">🔘 Buttons</button>
-      <button class="nav" data-page="users">👥 Users</button>
-    </aside>
+    <button class="nav active" data-page="dashboard">📊 Dashboard</button>
+    <button class="nav" data-page="bots">🤖 Bots</button>
+    <button class="nav" data-page="settings">⚙️ Settings</button>
+    <button class="nav" data-page="promos">🎁 Promos</button>
+    <button class="nav" data-page="buttons">🔘 Buttons</button>
+    <button class="nav" data-page="users">👥 Users</button>
+    <button class="nav" data-page="broadcast">📢 Broadcast</button>
+    <button class="nav" data-page="cloudinary">☁️ Cloudinary</button>
+  </aside>
 
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <h1 id="pageTitle">Dashboard</h1>
-          <p id="activeBotLabel">No bot selected</p>
-        </div>
-        <button class="primary" onclick="openCreateBot()">+ Create New Bot</button>
-      </header>
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="activeBotText">No bot selected</p>
+      </div>
+      <div class="topActions">
+        <button class="primary" id="createBotBtn">+ Create New Bot</button>
+        <button class="ghost" id="syncBtn">🔄 Sync Updates</button>
+        <button class="ghost" id="listenBtn">▶ Start Listener</button>
+      </div>
+    </header>
 
-      <section id="dashboard" class="page active">
-        <div class="cards">
-          <div class="card"><h3>Total Bots</h3><b id="statBots">0</b></div>
-          <div class="card"><h3>Total Users</h3><b id="statUsers">0</b></div>
-          <div class="card"><h3>Total Promos</h3><b id="statPromos">0</b></div>
-        </div>
-      </section>
+    <section id="dashboard" class="page active">
+      <div class="notice">
+        <b>Free Spark Mode:</b> panel ini tidak guna Cloud Functions. User Telegram akan disimpan bila kau tekan Sync / Start Listener.
+      </div>
+      <div class="cards">
+        <div class="card"><span>Total Bots</span><strong id="statBots">0</strong></div>
+        <div class="card"><span>Selected Bot Users</span><strong id="statUsers">0</strong></div>
+        <div class="card"><span>Selected Bot Promos</span><strong id="statPromos">0</strong></div>
+        <div class="card"><span>Buttons</span><strong id="statButtons">0</strong></div>
+      </div>
+    </section>
 
-      <section id="bots" class="page">
-        <div class="panel">
-          <h2>🤖 Bot List</h2>
-          <div id="botList" class="bot-grid"></div>
-        </div>
-      </section>
+    <section id="bots" class="page">
+      <div class="panel">
+        <h2>🤖 Multi Bot Manager</h2>
+        <div id="botList" class="botGrid"></div>
+      </div>
+    </section>
 
-      <section id="settings" class="page">
-        <div class="panel">
-          <h2>⚙️ Bot Settings</h2>
-
-          <label>Main Banner URL</label>
-          <input id="mainBannerUrl" placeholder="https://res.cloudinary.com/..." />
-
-          <label>Welcome Text</label>
-          <textarea id="welcomeText" rows="7">👋 Welcome {username}
+    <section id="settings" class="page">
+      <div class="panel">
+        <h2>⚙️ Bot Settings</h2>
+        <label>Main Banner URL</label>
+        <input id="mainBannerUrl" placeholder="https://res.cloudinary.com/..." />
+        <label>Welcome Text</label>
+        <textarea id="welcomeText" rows="8">👋 Welcome {username}
 🆔 Your ID: {user_id}
 
 Welcome to Promotion Center 🔥
 Choose action below:</textarea>
-
-          <label>About Text</label>
-          <textarea id="aboutText" rows="5">📌 About Us
+        <label>About Text</label>
+        <textarea id="aboutText" rows="5">📌 About Us
 
 Fast Withdraw | 24/7 Support</textarea>
+        <label>Register URL</label>
+        <input id="registerUrl" placeholder="https://yourwebsite.com" />
+        <label>Telegram Support URL</label>
+        <input id="telegramSupport" placeholder="https://t.me/your_support" />
+        <label>WhatsApp URL</label>
+        <input id="whatsappUrl" placeholder="https://wa.me/60123456789" />
+        <button class="primary" id="saveSettingsBtn">💾 Save Settings</button>
+      </div>
+    </section>
 
-          <label>Register URL</label>
-          <input id="registerUrl" placeholder="https://yourwebsite.com" />
+    <section id="promos" class="page">
+      <div class="panel">
+        <h2>🎁 Add Promo</h2>
+        <input id="promoTitle" placeholder="🔥 Promo 1" />
+        <input id="promoImageUrl" placeholder="Image URL optional" />
+        <textarea id="promoCaption" rows="5" placeholder="Caption promo"></textarea>
+        <button class="primary" id="addPromoBtn">Add Promo</button>
+      </div>
+      <div class="panel"><h2>📋 Promo List</h2><div id="promoList"></div></div>
+    </section>
 
-          <label>Telegram Support URL</label>
-          <input id="telegramSupport" placeholder="https://t.me/your_support" />
+    <section id="buttons" class="page">
+      <div class="panel">
+        <h2>🔘 Custom Inline Buttons</h2>
+        <input id="btnText" placeholder="🚀 Register" />
+        <input id="btnUrl" placeholder="https://yourwebsite.com" />
+        <button class="primary" id="addButtonBtn">Add Button</button>
+      </div>
+      <div class="panel"><h2>Current Buttons</h2><div id="buttonList"></div></div>
+    </section>
 
-          <label>WhatsApp URL</label>
-          <input id="whatsappUrl" placeholder="https://wa.me/60123456789" />
+    <section id="users" class="page">
+      <div class="panel">
+        <div class="panelHead"><h2>👥 Telegram Users</h2><button class="ghost" id="exportUsersBtn">Export CSV</button></div>
+        <input id="userSearch" placeholder="Search username / ID" />
+        <div id="userList"></div>
+      </div>
+    </section>
 
-          <button class="primary" onclick="saveSettings()">💾 Save Settings</button>
-        </div>
+    <section id="broadcast" class="page">
+      <div class="panel">
+        <h2>📢 Broadcast</h2>
+        <input id="broadcastImage" placeholder="Image URL optional" />
+        <textarea id="broadcastCaption" rows="7" placeholder="Tulis caption broadcast"></textarea>
+        <button class="primary" id="broadcastBtn">Send To All Users</button>
+        <pre id="broadcastLog"></pre>
+      </div>
+    </section>
 
-        <div class="panel">
-          <h2>🖼️ Upload Banner Cloudinary</h2>
-          <input type="file" id="uploadFile" />
-          <button class="primary" onclick="uploadImage()">Upload Image</button>
-          <p id="uploadResult"></p>
-        </div>
-      </section>
+    <section id="cloudinary" class="page">
+      <div class="panel">
+        <h2>☁️ Cloudinary Unsigned Upload</h2>
+        <p class="muted">Untuk free static mode, buat unsigned upload preset dekat Cloudinary. Jangan guna API Secret dalam browser.</p>
+        <label>Cloud Name</label>
+        <input id="cloudName" placeholder="dqctvbenv" />
+        <label>Unsigned Upload Preset</label>
+        <input id="uploadPreset" placeholder="preset_name" />
+        <input type="file" id="cloudFile" accept="image/*" />
+        <button class="primary" id="uploadCloudBtn">Upload Image</button>
+        <div id="cloudResult"></div>
+      </div>
+    </section>
+  </main>
 
-      <section id="promos" class="page">
-        <div class="panel">
-          <h2>🎁 Add Promo</h2>
-          <input id="promoTitle" placeholder="Promo title" />
-          <input id="promoImageUrl" placeholder="Image URL" />
-          <textarea id="promoCaption" rows="5" placeholder="Caption"></textarea>
-          <button class="primary" onclick="addPromo()">Add Promo</button>
-        </div>
-
-        <div class="panel">
-          <h2>📋 Promo List</h2>
-          <div id="promoList"></div>
-        </div>
-      </section>
-
-      <section id="buttons" class="page">
-        <div class="panel">
-          <h2>🔘 Banner Buttons</h2>
-          <input id="btnText" placeholder="Button Text example: 🚀 Register" />
-          <input id="btnUrl" placeholder="Button URL optional" />
-          <input id="btnCallback" placeholder="Callback Data optional example: open_menu" />
-          <button class="primary" onclick="addButton()">Add Button</button>
-        </div>
-
-        <div class="panel">
-          <h2>Current Buttons</h2>
-          <div id="buttonList"></div>
-        </div>
-      </section>
-
-      <section id="users" class="page">
-        <div class="panel">
-          <h2>👥 Telegram Users</h2>
-          <div id="userList"></div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <div id="botModal" class="modal">
-    <div class="modal-box">
+  <div class="modal" id="botModal">
+    <div class="modalBox">
       <h2>Create New Bot</h2>
+      <p class="muted">Token akan disimpan di Realtime Database. Untuk admin sendiri boleh guna, tapi jangan share panel ke orang lain.</p>
       <label>Telegram Bot Token</label>
-      <input id="botToken" placeholder="123456:ABCDEF..." />
+      <input id="botToken" placeholder="123456:ABC..." />
       <div class="row">
-        <button class="primary" onclick="createBot()">Save Bot</button>
-        <button class="danger" onclick="closeCreateBot()">Cancel</button>
+        <button class="primary" id="saveBotBtn">Save Bot</button>
+        <button class="danger" id="closeBotModalBtn">Cancel</button>
       </div>
     </div>
   </div>
