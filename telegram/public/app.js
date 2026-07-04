@@ -282,23 +282,42 @@ window.deleteButton = async (buttonId) => {
   await loadButtons();
 };
 
-async function syncUpdates() {
+async function clearWebhook(bot) {
+  try {
+    await tg(bot.token, "deleteWebhook", {
+      drop_pending_updates: false
+    });
+  } catch (e) {
+    console.warn("deleteWebhook warning:", e.message);
+  }
+}
+
+async function syncUpdates(showAlert = true) {
   const bot = await getBot();
   if (!bot) return alert("Pilih bot dulu bro");
 
   try {
+    await clearWebhook(bot);
+
     const lastSnap = await get(ref(db, `bots/${selectedBotId}/lastUpdateId`));
     const offset = lastSnap.exists() ? Number(lastSnap.val()) + 1 : undefined;
 
-    const updates = await tg(bot.token, "getUpdates", offset ? { offset, timeout: 1 } : { timeout: 1 });
+    const updates = await tg(
+      bot.token,
+      "getUpdates",
+      offset
+        ? { offset, timeout: 1, allowed_updates: ["message"] }
+        : { timeout: 1, allowed_updates: ["message"] }
+    );
 
     let lastId = offset || 0;
     let count = 0;
 
     for (const up of updates) {
       lastId = up.update_id;
+
       const msg = up.message;
-      if (!msg) continue;
+      if (!msg || !msg.chat) continue;
 
       const chat = msg.chat;
       const text = msg.text || "";
@@ -309,7 +328,8 @@ async function syncUpdates() {
           username: chat.username || "",
           firstName: chat.first_name || "",
           lastName: chat.last_name || "",
-          startedAt: Date.now()
+          startedAt: Date.now(),
+          lastActive: Date.now()
         });
 
         await sendWelcome(bot, chat);
@@ -317,117 +337,19 @@ async function syncUpdates() {
       }
     }
 
-    if (lastId) await set(ref(db, `bots/${selectedBotId}/lastUpdateId`), lastId);
-    await loadUsers();
-    alert(`Sync done ✅\nNew users: ${count}`);
-  } catch (e) {
-    alert(e.message);
-  }
-}
-
-async function sendWelcome(bot, chat) {
-  const s = bot.settings || {};
-  const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
-  const buttons = Object.values(buttonsSnap.val() || {});
-
-  const text = (s.welcomeText || "Welcome {username}")
-    .replaceAll("{username}", chat.username ? "@" + chat.username : chat.first_name || "User")
-    .replaceAll("{user_id}", chat.id);
-
-  const reply_markup = buttons.length ? {
-    inline_keyboard: buttons.map(b => [{ text: b.text, url: b.url }])
-  } : undefined;
-
-  if (s.mainBannerUrl) {
-    await tg(bot.token, "sendPhoto", {
-      chat_id: chat.id,
-      photo: s.mainBannerUrl,
-      caption: text,
-      reply_markup
-    });
-  } else {
-    await tg(bot.token, "sendMessage", {
-      chat_id: chat.id,
-      text,
-      reply_markup
-    });
-  }
-}
-
-async function loadUsers() {
-  if (!selectedBotId) return;
-  const snap = await get(ref(db, `bots/${selectedBotId}/users`));
-  const data = snap.val() || {};
-  const users = Object.values(data);
-
-  $("statUsers").textContent = users.length;
-  $("userList").innerHTML = users.length ? users.map(u => `
-    <div class="item">
-      <h3>@${esc(u.username || "no_username")}</h3>
-      <p>${esc((u.firstName || "") + " " + (u.lastName || ""))}</p>
-      <p>Chat ID: ${esc(u.chatId)}</p>
-    </div>
-  `).join("") : `<p class="muted">Belum ada user. Tekan Sync Updates selepas user /start.</p>`;
-}
-
-async function broadcast() {
-  const bot = await getBot();
-  if (!bot) return alert("Pilih bot dulu bro");
-
-  const image = $("broadcastImage").value.trim();
-  const caption = $("broadcastCaption").value.trim();
-  if (!caption && !image) return alert("Isi caption atau image URL dulu bro");
-
-  const us = await get(ref(db, `bots/${selectedBotId}/users`));
-  const users = Object.values(us.val() || {});
-  let ok = 0, fail = 0;
-
-  $("broadcastLog").textContent = `Start broadcast to ${users.length} users...\n`;
-
-  for (const u of users) {
-    try {
-      if (image) {
-        await tg(bot.token, "sendPhoto", { chat_id: u.chatId, photo: image, caption });
-      } else {
-        await tg(bot.token, "sendMessage", { chat_id: u.chatId, text: caption });
-      }
-      ok++;
-      $("broadcastLog").textContent += `✅ ${u.chatId}\n`;
-    } catch (e) {
-      fail++;
-      $("broadcastLog").textContent += `❌ ${u.chatId} - ${e.message}\n`;
+    if (lastId) {
+      await set(ref(db, `bots/${selectedBotId}/lastUpdateId`), lastId);
     }
-    await new Promise(r => setTimeout(r, 80));
+
+    await loadUsers();
+
+    if (showAlert) {
+      alert(`Sync done ✅\nWelcome sent: ${count}`);
+    }
+  } catch (e) {
+    console.error(e);
+    if (showAlert) alert(e.message);
   }
-
-  $("broadcastLog").textContent += `\nDone. Success ${ok}, Failed ${fail}`;
-}
-
-async function uploadCloudinary() {
-  const cloudName = $("cloudName").value.trim();
-  const preset = $("uploadPreset").value.trim();
-  const file = $("cloudFile").files[0];
-
-  if (!cloudName || !preset || !file) return alert("Isi Cloud Name, Upload Preset dan pilih gambar bro");
-
-  const form = new FormData();
-  form.append("file", file);
-  form.append("upload_preset", preset);
-
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: form
-  });
-
-  const data = await res.json();
-  if (!data.secure_url) return alert(data.error?.message || "Upload failed");
-
-  $("cloudResult").innerHTML = `
-    <p>Uploaded ✅</p>
-    <input value="${data.secure_url}" readonly onclick="this.select()" />
-  `;
-
-  $("mainBannerUrl").value = data.secure_url;
 }
 
 function startListener() {
@@ -439,9 +361,10 @@ function startListener() {
     return;
   }
 
-  listenerTimer = setInterval(syncUpdates, 5000);
+  listenerTimer = setInterval(() => syncUpdates(false), 3000);
   $("listenBtn").textContent = "⏸ Stop Listener";
-  syncUpdates();
+  syncUpdates(false);
+  alert("Listener started ✅\nSekarang cuba tekan /start di Telegram.");
 }
 
 async function exportUsers() {
