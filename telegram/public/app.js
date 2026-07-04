@@ -253,12 +253,13 @@ async function addButton() {
   const action = $("btnAction").value;
   if (!text || !url) return alert("Isi text dan URL button bro");
 
-await set(push(ref(db, `bots/${selectedBotId}/buttons`)), {
-  text,
-  url,
-  action,
-  order: Number($("btnOrder").value || 999),
-  createdAt: Date.now()
+await set(push(ref(db,`bots/${selectedBotId}/buttons`)),{
+    text,
+    url,
+    action,
+    order:Number($("btnOrder").value||999),
+    createdAt:Date.now()
+
 });
 
 $("btnText").value = "";
@@ -272,7 +273,9 @@ async function loadButtons() {
   if (!selectedBotId) return;
   const snap = await get(ref(db, `bots/${selectedBotId}/buttons`));
   const data = snap.val() || {};
-  const buttons = Object.entries(data).map(([id, b]) => ({ id, ...b }));
+  const buttons = Object.entries(data)
+.map(([id,b])=>({id,...b}))
+.sort((a,b)=>(a.order||999)-(b.order||999));
 
   $("statButtons").textContent = buttons.length;
   $("buttonList").innerHTML = buttons.length ? buttons.map(b => `
@@ -392,78 +395,90 @@ function startListener() {
   alert("Listener started ✅\nSekarang hantar /start test di Telegram.");
 }
 async function sendWelcome(bot, chat) {
-  const s = bot.settings || {};
 
-  const text = (s.welcomeText || "Welcome {username}")
-    .replaceAll("{username}", chat.username ? "@" + chat.username : chat.first_name || "User")
-    .replaceAll("{user_id}", chat.id);
+    const s = bot.settings || {};
 
-const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
+    const text = (s.welcomeText || "Welcome {username}")
+        .replaceAll("{username}",
+            chat.username ? "@" + chat.username : chat.first_name || "User")
+        .replaceAll("{user_id}", chat.id);
 
-const buttons = Object.values(buttonsSnap.val() || {})
-.filter(b => b.text && b.url)
-.sort((a,b)=>(a.order||999)-(b.order||999));
-
-const rows=[];
-
-for(let i=0;i<buttons.length;i+=2){
-
-    rows.push(
-
-        buttons.slice(i,i+2).map(btn=>({
-
-            text:btn.text,
-
-            const rows = [];
-
-for (let i = 0; i < buttons.length; i += 2) {
-  rows.push(
-    buttons.slice(i, i + 2).map(btn => {
-      if (btn.action && btn.action !== "url") {
-        return {
-          text: btn.text,
-          callback_data: btn.action
-        };
-      }
-
-      return {
-        text: btn.text,
-        url: btn.url
-      };
-    })
-  );
-}
-
-const reply_markup = rows.length ? {
-  inline_keyboard: rows
-} : undefined;
-
-        }))
-
+    const buttonsSnap = await get(
+        ref(db, `bots/${selectedBotId}/buttons`)
     );
 
-}
+    const buttons = Object.values(buttonsSnap.val() || {})
+        .filter(b => b.text)
+        .sort((a, b) => (a.order || 999) - (b.order || 999));
 
-const reply_markup = rows.length ? {
+    const rows = [];
 
-    inline_keyboard:rows
+    for (let i = 0; i < buttons.length; i += 2) {
 
-} : undefined;
+        rows.push(
 
-  if (s.mainBannerUrl) {
-    await tg(bot.token, "sendPhoto", {
-      chat_id: chat.id,
-      photo: s.mainBannerUrl,
-      caption: text,
-      reply_markup
-    });
-  } else {
-    await tg(bot.token, "sendMessage", {
-      chat_id: chat.id,
-      text,
-      reply_markup
-    });
-  }
+            buttons.slice(i, i + 2).map(btn => {
+
+                if (btn.action && btn.action !== "url") {
+
+                    return {
+
+                        text: btn.text,
+
+                        callback_data: btn.action
+
+                    };
+
+                }
+
+                return {
+
+                    text: btn.text,
+
+                    url: btn.url
+
+                };
+
+            })
+
+        );
+
+    }
+
+    const reply_markup = {
+
+        inline_keyboard: rows
+
+    };
+
+    if (s.mainBannerUrl) {
+
+        await tg(bot.token, "sendPhoto", {
+
+            chat_id: chat.id,
+
+            photo: s.mainBannerUrl,
+
+            caption: text,
+
+            reply_markup
+
+        });
+
+    } else {
+
+        await tg(bot.token, "sendMessage", {
+
+            chat_id: chat.id,
+
+            text,
+
+            reply_markup
+
+        });
+
+    }
+
 }
 
 async function loadUsers() {
