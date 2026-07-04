@@ -366,7 +366,66 @@ function startListener() {
   syncUpdates(false);
   alert("Listener started ✅\nSekarang cuba tekan /start di Telegram.");
 }
+async function sendWelcome(bot, chat) {
+  const s = bot.settings || {};
+  const text = (s.welcomeText || "Welcome {username}")
+    .replaceAll("{username}", chat.username ? "@" + chat.username : chat.first_name || "User")
+    .replaceAll("{user_id}", chat.id);
 
+  if (s.mainBannerUrl) {
+    await tg(bot.token, "sendPhoto", {
+      chat_id: chat.id,
+      photo: s.mainBannerUrl,
+      caption: text
+    });
+  } else {
+    await tg(bot.token, "sendMessage", {
+      chat_id: chat.id,
+      text
+    });
+  }
+}
+
+async function loadUsers() {
+  if (!selectedBotId) return;
+  const snap = await get(ref(db, `bots/${selectedBotId}/users`));
+  const users = Object.values(snap.val() || {});
+  $("statUsers").textContent = users.length;
+  $("userList").innerHTML = users.map(u => `
+    <div class="item">
+      <h3>@${esc(u.username || "no_username")}</h3>
+      <p>${esc(u.firstName || "")}</p>
+      <p>Chat ID: ${esc(u.chatId)}</p>
+    </div>
+  `).join("");
+}
+
+async function broadcast() {
+  alert("Broadcast function belum siap penuh bro, kita sambung lepas /start jalan dulu.");
+}
+
+async function uploadCloudinary() {
+  const cloudName = $("cloudName").value.trim();
+  const preset = $("uploadPreset").value.trim();
+  const file = $("cloudFile").files[0];
+
+  if (!cloudName || !preset || !file) return alert("Isi Cloud Name, Preset dan pilih gambar");
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", preset);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: form
+  });
+
+  const data = await res.json();
+  if (!data.secure_url) return alert(data.error?.message || "Upload failed");
+
+  $("cloudResult").innerHTML = `<input value="${data.secure_url}" readonly onclick="this.select()">`;
+  $("mainBannerUrl").value = data.secure_url;
+}
 async function exportUsers() {
   const snap = await get(ref(db, `bots/${selectedBotId}/users`));
   const users = Object.values(snap.val() || {});
