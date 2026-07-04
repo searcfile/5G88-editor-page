@@ -252,12 +252,16 @@ async function addButton() {
   const url = $("btnUrl").value.trim();
   if (!text || !url) return alert("Isi text dan URL button bro");
 
-  await set(push(ref(db, `bots/${selectedBotId}/buttons`)), {
-    text, url, createdAt: Date.now()
-  });
+await set(push(ref(db, `bots/${selectedBotId}/buttons`)), {
+    text,
+    url,
+    order: Number($("btnOrder").value || 999),
+    createdAt: Date.now()
+});
 
-  $("btnText").value = "";
-  $("btnUrl").value = "";
+$("btnText").value = "";
+$("btnUrl").value = "";
+$("btnOrder").value = "";
   await loadButtons();
 }
 
@@ -386,15 +390,35 @@ async function sendWelcome(bot, chat) {
     .replaceAll("{username}", chat.username ? "@" + chat.username : chat.first_name || "User")
     .replaceAll("{user_id}", chat.id);
 
-  const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
-  const buttons = Object.values(buttonsSnap.val() || {}).filter(b => b.text && b.url);
+const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
 
-  const reply_markup = buttons.length ? {
-    inline_keyboard: buttons.map(b => [{
-      text: b.text,
-      url: b.url
-    }])
-  } : undefined;
+const buttons = Object.values(buttonsSnap.val() || {})
+.filter(b => b.text && b.url)
+.sort((a,b)=>(a.order||999)-(b.order||999));
+
+const rows=[];
+
+for(let i=0;i<buttons.length;i+=2){
+
+    rows.push(
+
+        buttons.slice(i,i+2).map(btn=>({
+
+            text:btn.text,
+
+            url:btn.url
+
+        }))
+
+    );
+
+}
+
+const reply_markup = rows.length ? {
+
+    inline_keyboard:rows
+
+} : undefined;
 
   if (s.mainBannerUrl) {
     await tg(bot.token, "sendPhoto", {
