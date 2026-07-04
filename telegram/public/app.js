@@ -352,6 +352,8 @@ async function syncUpdates(showAlert = true) {
   }
 }
 
+let isSyncing = false;
+
 function startListener() {
   if (listenerTimer) {
     clearInterval(listenerTimer);
@@ -361,10 +363,18 @@ function startListener() {
     return;
   }
 
-  listenerTimer = setInterval(() => syncUpdates(false), 3000);
+  listenerTimer = setInterval(async () => {
+    if (isSyncing) return;
+    isSyncing = true;
+    try {
+      await syncUpdates(false);
+    } finally {
+      isSyncing = false;
+    }
+  }, 6000);
+
   $("listenBtn").textContent = "⏸ Stop Listener";
-  syncUpdates(false);
-  alert("Listener started ✅\nSekarang cuba tekan /start di Telegram.");
+  alert("Listener started ✅\nSekarang hantar /start test di Telegram.");
 }
 async function sendWelcome(bot, chat) {
   const s = bot.settings || {};
@@ -374,8 +384,7 @@ async function sendWelcome(bot, chat) {
     .replaceAll("{user_id}", chat.id);
 
   const buttonsSnap = await get(ref(db, `bots/${selectedBotId}/buttons`));
-  const buttons = Object.values(buttonsSnap.val() || {})
-    .filter(b => b.text && b.url);
+  const buttons = Object.values(buttonsSnap.val() || {}).filter(b => b.text && b.url);
 
   const reply_markup = buttons.length ? {
     inline_keyboard: buttons.map(b => [{
