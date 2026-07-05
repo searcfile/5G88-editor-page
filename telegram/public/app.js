@@ -434,11 +434,8 @@ if(text=="💎 Promo 3"){
 }
 
 if(text=="⬅ Back Menu" || text=="⬅️ Back Menu"){
-
-    await sendMenu(bot,chat.id);
-
+    await sendWelcome(bot,chat);
     continue;
-
 }
       if (text.startsWith("/start")) {
         await set(ref(db, `bots/${selectedBotId}/users/${chat.id}`), {
