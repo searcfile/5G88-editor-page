@@ -279,17 +279,21 @@ $("btnOrder").value = "";
 
 async function loadButtons() {
   if (!selectedBotId) return;
+
   const snap = await get(ref(db, `bots/${selectedBotId}/buttons`));
   const data = snap.val() || {};
+
   const buttons = Object.entries(data)
-.map(([id,b])=>({id,...b}))
-.sort((a,b)=>(a.order||999)-(b.order||999));
+    .map(([id, b]) => ({ id, ...b }))
+    .sort((a, b) => (a.order || 999) - (b.order || 999));
 
   $("statButtons").textContent = buttons.length;
+
   $("buttonList").innerHTML = buttons.length ? buttons.map(b => `
     <div class="item">
-      <h3>${esc(b.text)}</h3>
-      <p>${esc(b.url)}</p>
+      <h3>${esc(b.order || "-")} - ${esc(b.text)}</h3>
+      <p>Action: ${esc(b.action || "url")}</p>
+      <p>${b.url ? esc(b.url) : "No URL needed"}</p>
       <button class="danger" onclick="deleteButton('${b.id}')">Delete</button>
     </div>
   `).join("") : `<p class="muted">Belum ada button.</p>`;
@@ -324,20 +328,21 @@ async function syncUpdates(showAlert = true) {
       bot.token,
       "getUpdates",
       offset
-        ? { offset, timeout: 1, allowed_updates: ["message"] }
-        : { timeout: 1, allowed_updates: ["message"] }
+        ? { offset, timeout: 1, allowed_updates: ["message", "callback_query"] }
+        : { timeout: 1, allowed_updates: ["message", "callback_query"] }
     );
 
     let lastId = offset || 0;
     let count = 0;
 
     for (const up of updates) {
-      if (up.callback_query) {
-  const cb = up.callback_query;
-  await handleAction(bot, cb.message.chat, cb.data, cb.id);
-  continue;
-}
       lastId = up.update_id;
+
+      if (up.callback_query) {
+        const cb = up.callback_query;
+        await handleAction(bot, cb.message.chat, cb.data, cb.id);
+        continue;
+      }
 
       const msg = up.message;
       if (!msg || !msg.chat) continue;
