@@ -394,7 +394,7 @@ async function syncUpdates(showAlert = true) {
 
       const chat = msg.chat;
       const text = msg.text || "";
-if(text=="📋 MENU"){
+if(text=="🎁 Promo"){
     await sendMenu(bot,chat.id);
     continue;
 }
@@ -551,8 +551,8 @@ async function sendWelcome(bot, chat) {
 const reply_markup = {
     keyboard: [
         [
-            { text: "📋 MENU" },
-            { text: "📌 About" }
+{ text: "🎁 Promo" },
+{ text: "📌 About" }
         ],
         [
             { text: "📞 Contact" },
