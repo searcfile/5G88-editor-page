@@ -689,6 +689,23 @@ async function answerCallback(bot, callbackId) {
     });
   } catch {}
 }
+function mainInlineButtons(){
+  return {
+    inline_keyboard:[
+      [
+        {text:"🎁 Promo", callback_data:"menu"},
+        {text:"📌 About", callback_data:"about"}
+      ],
+      [
+        {text:"📞 Contact", callback_data:"contact"},
+        {text:"🚀 Register", callback_data:"register"}
+      ],
+      [
+        {text:"🎁 Referral", callback_data:"referral"}
+      ]
+    ]
+  };
+}
 async function sendMainKeyboard(bot, chatId){
   await tg(bot.token,"sendMessage",{
     chat_id:chatId,
@@ -760,7 +777,7 @@ const markup = {
 
             caption:s.aboutText,
 
-            reply_markup:markup
+            reply_markup:mainInlineButtons()
 
         });
 
@@ -772,7 +789,7 @@ const markup = {
 
             text:s.aboutText,
 
-            reply_markup:markup
+            reply_markup:mainInlineButtons()
 
         });
 
@@ -804,7 +821,7 @@ const markup = {
 
             caption:s.contactText,
 
-            reply_markup:markup
+            reply_markup:mainInlineButtons()
 
         });
 
@@ -816,7 +833,7 @@ const markup = {
 
             text:s.contactText,
 
-            reply_markup:markup
+            reply_markup:mainInlineButtons()
 
         });
 
@@ -896,13 +913,13 @@ async function sendPromoByNumber(bot, chatId, number) {
       chat_id: chatId,
       photo: promo.imageUrl,
       caption: promo.caption || promo.title,
-      reply_markup: markup
+      reply_markup:mainInlineButtons()
     });
   } else {
     await tg(bot.token, "sendMessage", {
       chat_id: chatId,
       text: promo.caption || promo.title,
-      reply_markup: markup
+      reply_markup:mainInlineButtons()
     });
   }
 }
