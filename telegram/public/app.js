@@ -434,7 +434,7 @@ if(text=="💎 Promo 3"){
 }
 
 if(text=="⬅ Back Menu" || text=="⬅️ Back Menu"){
-    await sendWelcome(bot,chat);
+    await sendMainKeyboard(bot,chat.id);
     continue;
 }
       if (text.startsWith("/start")) {
@@ -689,7 +689,21 @@ async function answerCallback(bot, callbackId) {
     });
   } catch {}
 }
-
+async function sendMainKeyboard(bot, chatId){
+  await tg(bot.token,"sendMessage",{
+    chat_id:chatId,
+    text:"📋 Main Menu",
+    reply_markup:{
+      keyboard:[
+        [{text:"🎁 Promo"},{text:"📌 About"}],
+        [{text:"📞 Contact"},{text:"🚀 Register"}],
+        [{text:"🎁 Referral"}]
+      ],
+      resize_keyboard:true,
+      is_persistent:true
+    }
+  });
+}
 async function sendMenu(bot,chatId){
 
     await tg(bot.token,"sendMessage",{
