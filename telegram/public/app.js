@@ -572,7 +572,50 @@ async function loadUsers() {
 }
 
 async function broadcast() {
-  alert("Broadcast function belum siap penuh bro, kita sambung lepas /start jalan dulu.");
+  if (!selectedBotId) return alert("Pilih bot dulu bro");
+
+  const bot = await getBot();
+  const image = $("broadcastImage").value.trim();
+  const caption = $("broadcastCaption").value.trim();
+
+  if (!caption && !image) {
+    return alert("Isi caption atau image URL dulu bro");
+  }
+
+  const snap = await get(ref(db, `bots/${selectedBotId}/users`));
+  const users = Object.values(snap.val() || {});
+
+  if (!users.length) return alert("Belum ada user untuk broadcast bro");
+
+  $("broadcastLog").textContent = `Start broadcast to ${users.length} users...\n`;
+
+  let ok = 0;
+  let fail = 0;
+
+  for (const u of users) {
+    try {
+      if (image) {
+        await tg(bot.token, "sendPhoto", {
+          chat_id: u.chatId,
+          photo: image,
+          caption: caption || ""
+        });
+      } else {
+        await tg(bot.token, "sendMessage", {
+          chat_id: u.chatId,
+          text: caption
+        });
+      }
+
+      ok++;
+      $("broadcastLog").textContent += `✅ ${u.chatId} sent\n`;
+    } catch (e) {
+      fail++;
+      $("broadcastLog").textContent += `❌ ${u.chatId} ${e.message}\n`;
+    }
+  }
+
+  $("broadcastLog").textContent += `\nDone. Success ${ok}, Failed ${fail}`;
 }
 
 async function uploadCloudinary() {
