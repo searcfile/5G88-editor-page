@@ -349,7 +349,49 @@ async function syncUpdates(showAlert = true) {
 
       const chat = msg.chat;
       const text = msg.text || "";
+if(text=="📋 MENU"){
+    await sendMenu(bot,chat.id);
+    continue;
+}
 
+if(text=="📌 About"){
+    await sendAbout(bot,chat.id);
+    continue;
+}
+
+if(text=="📞 Contact"){
+    await sendContact(bot,chat.id);
+    continue;
+}
+
+if(text=="🚀 Register"){
+    await handleAction(bot,chat,"register");
+    continue;
+}
+
+if(text=="🎁 Referral"){
+    await sendReferral(bot,chat);
+    continue;
+}
+if(text=="🔥 Promo 1"){
+    await sendPromoByNumber(bot,chat.id,1);
+    continue;
+}
+
+if(text=="🎁 Promo 2"){
+    await sendPromoByNumber(bot,chat.id,2);
+    continue;
+}
+
+if(text=="💎 Promo 3"){
+    await sendPromoByNumber(bot,chat.id,3);
+    continue;
+}
+
+if(text=="⬅ Back Menu"){
+    await sendWelcome(bot,chat);
+    continue;
+}
       if (text.startsWith("/start")) {
         await set(ref(db, `bots/${selectedBotId}/users/${chat.id}`), {
           chatId: chat.id,
@@ -458,11 +500,23 @@ async function sendWelcome(bot, chat) {
 
     }
 
-    const reply_markup = {
-
-        inline_keyboard: rows
-
-    };
+const reply_markup = {
+    keyboard: [
+        [
+            { text: "📋 MENU" },
+            { text: "📌 About" }
+        ],
+        [
+            { text: "📞 Contact" },
+            { text: "🚀 Register" }
+        ],
+        [
+            { text: "🎁 Referral" }
+        ]
+    ],
+    resize_keyboard: true,
+    is_persistent: true
+};
 
     if (s.mainBannerUrl) {
 
@@ -542,23 +596,36 @@ async function answerCallback(bot, callbackId) {
   } catch {}
 }
 
-async function sendMenu(bot, chatId) {
-  await tg(bot.token, "sendMessage", {
-    chat_id: chatId,
-    text: "🔥 Promotion Menu",
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "🔥 Promo 1", callback_data: "promo_1" },
-          { text: "🎁 Promo 2", callback_data: "promo_2" }
-        ],
-        [
-          { text: "💎 Promo 3", callback_data: "promo_3" },
-          { text: "⬅️ Back Menu", callback_data: "back_menu" }
-        ]
-      ]
-    }
-  });
+async function sendMenu(bot,chatId){
+
+    await tg(bot.token,"sendMessage",{
+
+        chat_id:chatId,
+
+        text:"🔥 Promotion Menu",
+
+        reply_markup:{
+
+            keyboard:[
+
+                [
+                    {text:"🔥 Promo 1"},
+                    {text:"🎁 Promo 2"}
+                ],
+
+                [
+                    {text:"💎 Promo 3"},
+                    {text:"⬅ Back Menu"}
+                ]
+
+            ],
+
+            resize_keyboard:true
+
+        }
+
+    });
+
 }
 
 async function sendAbout(bot, chatId) {
