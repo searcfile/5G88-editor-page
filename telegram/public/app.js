@@ -150,6 +150,9 @@ async function loadSettings() {
   $("mainBannerUrl").value = s.mainBannerUrl || "";
   $("welcomeText").value = s.welcomeText || $("welcomeText").value;
   $("aboutText").value = s.aboutText || $("aboutText").value;
+  $("aboutBannerUrl").value = s.aboutBannerUrl || "";
+$("contactBannerUrl").value = s.contactBannerUrl || "";
+$("contactText").value = s.contactText || "📞 Contact Us";
   $("registerUrl").value = s.registerUrl || "";
   $("telegramSupport").value = s.telegramSupport || "";
   $("whatsappUrl").value = s.whatsappUrl || "";
@@ -162,6 +165,9 @@ async function saveSettings() {
     mainBannerUrl: $("mainBannerUrl").value.trim(),
     welcomeText: $("welcomeText").value,
     aboutText: $("aboutText").value,
+    aboutBannerUrl: $("aboutBannerUrl").value.trim(),
+contactBannerUrl: $("contactBannerUrl").value.trim(),
+contactText: $("contactText").value,
     registerUrl: $("registerUrl").value.trim(),
     telegramSupport: $("telegramSupport").value.trim(),
     whatsappUrl: $("whatsappUrl").value.trim(),
@@ -388,9 +394,12 @@ if(text=="💎 Promo 3"){
     continue;
 }
 
-if(text=="⬅ Back Menu"){
-    await sendWelcome(bot,chat);
+if(text=="⬅ Back Menu" || text=="⬅️ Back Menu"){
+
+    await sendMenu(bot,chat.id);
+
     continue;
+
 }
       if (text.startsWith("/start")) {
         await set(ref(db, `bots/${selectedBotId}/users/${chat.id}`), {
@@ -628,26 +637,96 @@ async function sendMenu(bot,chatId){
 
 }
 
-async function sendAbout(bot, chatId) {
-  const s = bot.settings || {};
-  await tg(bot.token, "sendMessage", {
-    chat_id: chatId,
-    text: s.aboutText || "📌 About Us\n\nFast Withdraw | 24/7 Support"
-  });
+async function sendAbout(bot, chatId){
+
+    const s = bot.settings || {};
+
+    const markup = {
+
+        keyboard:[
+            [
+                {text:"⬅ Back Menu"}
+            ]
+        ],
+
+        resize_keyboard:true
+
+    };
+
+    if(s.aboutBannerUrl){
+
+        await tg(bot.token,"sendPhoto",{
+
+            chat_id:chatId,
+
+            photo:s.aboutBannerUrl,
+
+            caption:s.aboutText,
+
+            reply_markup:markup
+
+        });
+
+    }else{
+
+        await tg(bot.token,"sendMessage",{
+
+            chat_id:chatId,
+
+            text:s.aboutText,
+
+            reply_markup:markup
+
+        });
+
+    }
+
 }
 
-async function sendContact(bot, chatId) {
-  const s = bot.settings || {};
-  await tg(bot.token, "sendMessage", {
-    chat_id: chatId,
-    text: "📞 Contact Us",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "💬 Telegram", url: s.telegramSupport || "https://t.me/" }],
-        [{ text: "💬 WhatsApp", url: s.whatsappUrl || "https://wa.me/" }]
-      ]
+async function sendContact(bot, chatId){
+
+    const s = bot.settings || {};
+
+    const markup={
+
+        keyboard:[
+            [
+                {text:"⬅ Back Menu"}
+            ]
+        ],
+
+        resize_keyboard:true
+
+    };
+
+    if(s.contactBannerUrl){
+
+        await tg(bot.token,"sendPhoto",{
+
+            chat_id:chatId,
+
+            photo:s.contactBannerUrl,
+
+            caption:s.contactText,
+
+            reply_markup:markup
+
+        });
+
+    }else{
+
+        await tg(bot.token,"sendMessage",{
+
+            chat_id:chatId,
+
+            text:s.contactText,
+
+            reply_markup:markup
+
+        });
+
     }
-  });
+
 }
 
 async function sendReferral(bot, chat) {
