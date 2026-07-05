@@ -740,17 +740,15 @@ async function sendAbout(bot, chatId){
 
     const s = bot.settings || {};
 
-    const markup = {
-
-        keyboard:[
-            [
-                {text:"⬅ Back Menu"}
-            ]
-        ],
-
-        resize_keyboard:true
-
-    };
+const markup = {
+  keyboard:[
+    [{text:"🎁 Promo"},{text:"📌 About"}],
+    [{text:"📞 Contact"},{text:"🚀 Register"}],
+    [{text:"🎁 Referral"}]
+  ],
+  resize_keyboard:true,
+  is_persistent:true
+};
 
     if(s.aboutBannerUrl){
 
@@ -786,17 +784,15 @@ async function sendContact(bot, chatId){
 
     const s = bot.settings || {};
 
-    const markup={
-
-        keyboard:[
-            [
-                {text:"⬅ Back Menu"}
-            ]
-        ],
-
-        resize_keyboard:true
-
-    };
+const markup = {
+  keyboard:[
+    [{text:"🎁 Promo"},{text:"📌 About"}],
+    [{text:"📞 Contact"},{text:"🚀 Register"}],
+    [{text:"🎁 Referral"}]
+  ],
+  resize_keyboard:true,
+  is_persistent:true
+};
 
     if(s.contactBannerUrl){
 
@@ -859,10 +855,19 @@ async function sendReferral(bot, chat) {
   const latestUser = latestSnap.val() || {};
   const link = `https://t.me/${(bot.botUsername || "").replace("@","")}?start=${code}`;
 
-  await tg(bot.token, "sendMessage", {
-    chat_id: chat.id,
-    text: `🎁 Referral Program\n\nYour referral code: ${code}\nYour referral link:\n${link}\n\n👥 Total invited: ${latestUser.totalInvite || 0}`
-  });
+await tg(bot.token, "sendMessage", {
+  chat_id: chat.id,
+  text: `🎁 Referral Program\n\nYour referral code: ${code}\nYour referral link:\n${link}\n\n👥 Total invited: ${latestUser.totalInvite || 0}`,
+  reply_markup:{
+    keyboard:[
+      [{text:"🎁 Promo"},{text:"📌 About"}],
+      [{text:"📞 Contact"},{text:"🚀 Register"}],
+      [{text:"🎁 Referral"}]
+    ],
+    resize_keyboard:true,
+    is_persistent:true
+  }
+});
 }
 
 async function sendPromoByNumber(bot, chatId, number) {
