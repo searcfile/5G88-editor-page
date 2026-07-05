@@ -319,7 +319,46 @@ async function clearWebhook(bot) {
     console.warn("deleteWebhook warning:", e.message);
   }
 }
+async function processReferralStart(bot, chat, text) {
+  const parts = text.split(" ");
+  const refCode = parts[1];
 
+  if (!refCode) return;
+
+  const codeSnap = await get(ref(db, `bots/${selectedBotId}/referralCodes/${refCode}`));
+  if (!codeSnap.exists()) return;
+
+  const refData = codeSnap.val();
+  const ownerChatId = refData.ownerChatId;
+
+  if (!ownerChatId || String(ownerChatId) === String(chat.id)) return;
+
+  const userRef = ref(db, `bots/${selectedBotId}/users/${chat.id}`);
+  const userSnap = await get(userRef);
+  const userData = userSnap.val() || {};
+
+  if (userData.invitedBy) return;
+
+  await update(userRef, {
+    invitedBy: ownerChatId,
+    invitedByCode: refCode
+  });
+
+  const ownerRef = ref(db, `bots/${selectedBotId}/users/${ownerChatId}`);
+  const ownerSnap = await get(ownerRef);
+  const owner = ownerSnap.val() || {};
+
+  await update(ownerRef, {
+    totalInvite: Number(owner.totalInvite || 0) + 1
+  });
+
+  await set(ref(db, `bots/${selectedBotId}/referrals/${ownerChatId}/${chat.id}`), {
+    chatId: chat.id,
+    username: chat.username || "",
+    firstName: chat.first_name || "",
+    joinedAt: Date.now()
+  });
+}
 async function syncUpdates(showAlert = true) {
   const bot = await getBot();
   if (!bot) return alert("Pilih bot dulu bro");
@@ -410,7 +449,7 @@ if(text=="⬅ Back Menu" || text=="⬅️ Back Menu"){
           startedAt: Date.now(),
           lastActive: Date.now()
         });
-
+        await processReferralStart(bot, chat, text);
         await sendWelcome(bot, chat);
         count++;
       }
@@ -559,14 +598,20 @@ const reply_markup = {
 
 async function loadUsers() {
   if (!selectedBotId) return;
+
   const snap = await get(ref(db, `bots/${selectedBotId}/users`));
   const users = Object.values(snap.val() || {});
+
   $("statUsers").textContent = users.length;
+
   $("userList").innerHTML = users.map(u => `
     <div class="item">
       <h3>@${esc(u.username || "no_username")}</h3>
       <p>${esc(u.firstName || "")}</p>
       <p>Chat ID: ${esc(u.chatId)}</p>
+      <p>Referral Code: ${esc(u.referralCode || "-")}</p>
+      <p>Invited By: ${esc(u.invitedBy || "-")}</p>
+      <p>Total Invite: ${esc(u.totalInvite || 0)}</p>
     </div>
   `).join("");
 }
@@ -772,18 +817,40 @@ async function sendContact(bot, chatId){
 
 }
 
-async function sendReferral(bot, chat) {
-  const code = String(chat.id).slice(-4) + Math.random().toString(36).slice(2,6).toUpperCase();
-  const link = `https://t.me/${(bot.botUsername || "").replace("@","")}?start=${code}`;
+function makeReferralCode(chatId){
+  return "R" + String(chatId).slice(-5) + Math.random().toString(36).slice(2,5).toUpperCase();
+}
 
-  await update(ref(db, `bots/${selectedBotId}/users/${chat.id}`), {
-    referralCode: code,
-    referralLink: link
-  });
+async function sendReferral(bot, chat) {
+  const userRef = ref(db, `bots/${selectedBotId}/users/${chat.id}`);
+  const userSnap = await get(userRef);
+  const oldUser = userSnap.val() || {};
+
+  let code = oldUser.referralCode;
+
+  if (!code) {
+    code = makeReferralCode(chat.id);
+
+    await update(userRef, {
+      referralCode: code,
+      referralLink: `https://t.me/${(bot.botUsername || "").replace("@","")}?start=${code}`,
+      totalInvite: oldUser.totalInvite || 0
+    });
+
+    await set(ref(db, `bots/${selectedBotId}/referralCodes/${code}`), {
+      ownerChatId: chat.id,
+      username: chat.username || "",
+      createdAt: Date.now()
+    });
+  }
+
+  const latestSnap = await get(userRef);
+  const latestUser = latestSnap.val() || {};
+  const link = `https://t.me/${(bot.botUsername || "").replace("@","")}?start=${code}`;
 
   await tg(bot.token, "sendMessage", {
     chat_id: chat.id,
-    text: `🎁 Referral Pro\n\nYour referral code: ${code}\nYour referral link:\n${link}`
+    text: `🎁 Referral Program\n\nYour referral code: ${code}\nYour referral link:\n${link}\n\n👥 Total invited: ${latestUser.totalInvite || 0}`
   });
 }
 
